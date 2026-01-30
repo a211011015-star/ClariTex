@@ -3,157 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClariTex Pro for Word</title>
-    <!-- استدعاء مكتبة Office.js الضرورية للتعامل مع وورد -->
+    <title>ClariTex Pro - المطور</title>
     <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --ms-blue: #0078D4;
-            --ms-bg: #FAF9F8;
-            --ms-text: #201F1E;
-        }
-        body { font-family: 'Segoe UI', 'Cairo', sans-serif; background-color: var(--ms-bg); color: var(--ms-text); }
-        .office-card { background: #fff; border: 1px solid #E1DFDD; border-radius: 4px; }
-        .office-btn:active { transform: scale(0.96); }
-        .ltr-content { direction: ltr; text-align: left; font-family: 'Segoe UI', sans-serif; }
+        :root { --ms-blue: #0078D4; --ms-bg: #FAF9F8; }
+        body { font-family: 'Segoe UI', 'Cairo', sans-serif; background-color: var(--ms-bg); }
+        .office-btn:active { transform: scale(0.98); }
+        /* تحسين مظهر الأكواد والمعادلات */
+        .math-preview { font-family: 'Cambria Math', 'Times New Roman', serif; background-color: #f3f2f1; padding: 0 4px; border-radius: 3px; }
     </style>
 </head>
-<body class="flex flex-col h-screen overflow-hidden p-2">
+<body class="flex flex-col h-screen overflow-hidden p-3 box-border">
 
-    <!-- Header Compact for Sidebar -->
+    <!-- Header -->
     <header class="flex items-center justify-between pb-3 border-b border-gray-200 mb-3 shrink-0">
         <div class="flex items-center gap-2 select-none">
-            <div class="text-xl font-bold tracking-tight">
-                <span style="color: var(--ms-blue);">Clari</span><span>Tex</span>
+            <div class="text-lg font-bold text-[#201F1E]">
+                <span style="color: var(--ms-blue);">Clari</span>Tex <span class="text-xs font-normal text-gray-500">v4.0</span>
             </div>
-            <span class="bg-gray-200 text-gray-600 text-[9px] px-1 rounded font-bold">ADD-IN</span>
         </div>
     </header>
 
-    <!-- Main Workspace (Vertical Layout for Sidebar) -->
+    <!-- Main Content -->
     <main class="flex-1 flex flex-col gap-3 overflow-hidden">
         
-        <!-- Input -->
-        <div class="flex-1 office-card flex flex-col min-h-[150px]">
-            <div class="bg-gray-50 border-b px-3 py-2 text-xs font-semibold text-gray-600 flex justify-between">
-                <span>نص جيميناي (LaTeX/Markdown)</span>
-                <button onclick="clearAll()" class="text-red-500 hover:text-red-700">مسح</button>
+        <!-- Input Section -->
+        <div class="flex-1 flex flex-col bg-white border border-gray-300 rounded shadow-sm">
+            <div class="bg-gray-50 px-3 py-2 border-b flex justify-between items-center">
+                <span class="text-xs font-bold text-gray-600">النص المراد معالجته</span>
+                <button onclick="clearArea()" class="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">مسح</button>
             </div>
-            <textarea id="input-area" 
-                class="flex-1 w-full p-3 resize-none outline-none text-sm ltr-content bg-transparent font-mono"
-                placeholder="الصق النص هنا..."></textarea>
+            <textarea id="input-area" class="flex-1 w-full p-3 resize-none outline-none text-sm font-mono text-gray-700 leading-relaxed" 
+                placeholder="الصق نص جيميناي هنا... النظام الجديد سيحمي النصوص العادية ويحول المعادلات فقط."></textarea>
         </div>
 
-        <!-- Action Button -->
-        <div class="shrink-0">
-             <button id="insert-btn" onclick="insertToWord()" class="w-full office-btn bg-[#0078D4] hover:bg-[#0062AD] text-white py-2 rounded text-sm font-semibold flex items-center justify-center gap-2 shadow-sm disabled:bg-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                إدراج في المستند (Insert)
+        <!-- Actions -->
+        <div class="grid grid-cols-2 gap-2 shrink-0">
+            <!-- زر قراءة التحديد من وورد -->
+            <button onclick="readFromWord()" class="col-span-2 office-btn bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-2 rounded text-sm font-semibold flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                جلب النص من Word
             </button>
-            <div id="status-msg" class="text-center text-xs mt-1 h-4 text-green-600 font-semibold opacity-0 transition-opacity"></div>
+            
+            <!-- زر المعالجة والإدراج -->
+            <button onclick="processAndInsert()" class="col-span-2 office-btn bg-[#0078D4] hover:bg-[#0062AD] text-white py-2.5 rounded text-sm font-semibold flex items-center justify-center gap-2 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                معالجة واستبدال (آمن)
+            </button>
         </div>
 
-        <!-- Preview (Hidden logic mainly, visual for user confidence) -->
-        <div class="h-[100px] office-card flex flex-col opacity-75">
-             <div class="bg-gray-50 border-b px-3 py-1 text-[10px] font-semibold text-gray-500">معاينة التنسيق</div>
-             <div id="output-preview" class="flex-1 p-2 overflow-y-auto text-xs ltr-content"></div>
-        </div>
-
+        <div id="status-bar" class="text-center text-xs h-4 text-green-600 transition-opacity opacity-0 font-medium"></div>
     </main>
 
     <script>
-        // --- تهيئة الأوفيس ---
-        let officeReady = false;
-
+        // --- تهيئة Office.js ---
         Office.onReady((info) => {
             if (info.host === Office.HostType.Word) {
-                officeReady = true;
-                console.log("Office is ready in Word!");
+                console.log("ClariTex Ready inside Word");
             }
         });
 
-        // --- دوال التحويل (نفس المنطق السابق) ---
-        const greekMap = { 'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'mu': 'μ', 'sigma': 'σ', 'pi': 'π', 'infty': '∞', 'pm': '±', 'approx': '≈', 'le': '≤', 'ge': '≥', 'times': '×', 'rightarrow': '→' }; 
-        // ... (يمكنك إضافة باقي القاموس الكبير هنا) ...
+        // --- محرك المعالجة الآمن (Safe Engine) ---
+        
+        // قاموس الرموز (موسع)
+        const symbolMap = {
+            'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'epsilon': 'ε', 'zeta': 'ζ', 'eta': 'η', 'theta': 'θ', 
+            'iota': 'ι', 'kappa': 'κ', 'lambda': 'λ', 'mu': 'μ', 'nu': 'ν', 'xi': 'ξ', 'omicron': 'ο', 'pi': 'π', 
+            'rho': 'ρ', 'sigma': 'σ', 'tau': 'τ', 'upsilon': 'υ', 'phi': 'φ', 'chi': 'χ', 'psi': 'ψ', 'omega': 'ω',
+            'Delta': 'Δ', 'Gamma': 'Γ', 'Lambda': 'Λ', 'Omega': 'Ω', 'Phi': 'Φ', 'Pi': 'Π', 'Sigma': 'Σ', 'Theta': 'Θ',
+            'times': '×', 'cdot': '·', 'div': '÷', 'pm': '±', 'approx': '≈', 'neq': '≠', 'le': '≤', 'ge': '≥', 
+            'infty': '∞', 'rightarrow': '→', 'leftarrow': '←', 'leftrightarrow': '↔', 'Rightarrow': '⇒',
+            'deg': '°', 'circ': '°', 'angle': '∠', 'nabla': '∇', 'partial': '∂', 'sum': '∑', 'prod': '∏', 'int': '∫',
+            'in': '∈', 'notin': '∉', 'subset': '⊂', 'subseteq': '⊆', 'cup': '∪', 'cap': '∩', 'empty': '∅'
+        };
 
-        function convertMarkdownToHtml(text) {
-            let html = text;
-            // Basic Markdown Processing
-            html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'); // Bold
-            html = html.replace(/\*(.*?)\*/g, '<i>$1</i>'); // Italic
-            html = html.replace(/^\s*[\-\*] (.*)/gim, '<ul><li>$1</li></ul>'); // Lists
-            html = html.replace(/<\/ul>\s*<ul>/gim, ''); // Merge Lists
-            html = html.replace(/\n/g, '<br>'); // Newlines
-            return html;
+        const superMap = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','n':'ⁿ','i':'ⁱ','x':'ˣ' };
+        const subMap = { '0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎','x':'ₓ','n':'ₙ' };
+
+        // الدالة الرئيسية التي تفصل النص عن المعادلات
+        function secureProcess(fullText) {
+            // 1. تقسيم النص بناء على علامات الدولار $...$
+            // النمط يلتقط ما بداخل $...$ أو \[...\]
+            // نستخدم دالة split مع capture group للاحتفاظ بالفواصل
+            const parts = fullText.split(/(\$[^$]+\$|\\\[[\s\S]*?\\\])/g);
+
+            // 2. معالجة الأجزاء الفردية فقط (التي هي معادلات)
+            const processedParts = parts.map(part => {
+                if (part.startsWith('$') || part.startsWith('\\[')) {
+                    // هذا جزء معادلة - قم بالتحويل
+                    let cleanMath = part.replace(/^\\\[|\\\]$|^\$|\$$/g, ''); // إزالة الأقواس $
+                    return `<span class="math-preview">${convertMathToUnicode(cleanMath)}</span>`;
+                } else {
+                    // هذا نص عادي - اتركه كما هو تماماً، فقط حول الأسطر الجديدة لـ HTML
+                    // Escape HTML special chars to be safe
+                    return part
+                        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                        .replace(/\n/g, '<br>');
+                }
+            });
+
+            // 3. إعادة التجميع
+            return processedParts.join('');
         }
 
-        function convertLatexToUnicode(s) {
-            // Simplified Logic for the Add-in demo
-            s = s.replace(/\\text\{([^}]+)\}/g, '$1');
+        function convertMathToUnicode(latex) {
+            let s = latex;
+
+            // تنظيف الأوامر الشائعة
+            s = s.replace(/\\text\{([^}]+)\}/g, '$1'); 
+            s = s.replace(/\\mathrm\{([^}]+)\}/g, '$1');
+            
+            // الكسور
             s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1/$2)');
-            s = s.replace(/\^\{\\circ\}/g, '°');
-            for (const [name, char] of Object.entries(greekMap)) {
+
+            // الجذور
+            s = s.replace(/\\sqrt\{([^}]+)\}/g, '√($1)');
+
+            // الدرجات المئوية (حالات خاصة)
+            s = s.replace(/\^\{\\circ\}/g, '°').replace(/\^\\circ/g, '°');
+
+            // الرموز (بحث دقيق باستخدام word boundary للنهاية فقط لتجنب استبدال pi بـ pine)
+            // بما أننا داخل بلوك معادلة، الاستبدال أكثر أماناً، لكن نتوخى الحذر
+            for (const [name, char] of Object.entries(symbolMap)) {
+                // نستبدل \name بشرط أن لا يتبعها حرف أبجدي
                 s = s.replace(new RegExp('\\\\' + name + '(?![a-zA-Z])', 'g'), char);
             }
-            s = s.replace(/\^(\d+)/g, (m, d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]); // Simple superscript demo
-            s = s.replace(/_(\d+)/g, (m, d) => '₀₁₂₃₄₅₆₇₈₉'[d]); // Simple subscript demo
-            s = s.replace(/\\/g, ''); 
-            return s.trim();
+
+            // الأسس والرموز السفلية
+            s = s.replace(/\^\{([^{}]+)\}/g, (_, g) => mapChars(g, superMap));
+            s = s.replace(/\^([a-zA-Z0-9])/g, (_, g) => mapChars(g, superMap));
+            s = s.replace(/_\{([^{}]+)\}/g, (_, g) => mapChars(g, subMap));
+            s = s.replace(/_([a-zA-Z0-9])/g, (_, g) => mapChars(g, subMap));
+
+            // تنظيف الشرطات المائلة المتبقية
+            s = s.replace(/\\/g, '');
+
+            return s;
         }
 
-        function processContent(rawText) {
-            let processed = rawText.replace(/\$(.*?)\$/gs, (match, content) => convertLatexToUnicode(content));
-            return convertMarkdownToHtml(processed);
+        function mapChars(str, map) {
+            return str.split('').map(c => map[c] || c).join('');
         }
 
-        // --- دالة الإدراج في وورد ---
-        async function insertToWord() {
+
+        // --- التفاعل مع وورد ---
+
+        // 1. جلب النص من وورد (للتعديل عليه)
+        async function readFromWord() {
+            try {
+                await Word.run(async (context) => {
+                    const selection = context.document.getSelection();
+                    selection.load("text");
+                    await context.sync();
+
+                    if (!selection.text) {
+                        showStatus("الرجاء تحديد نص في المستند أولاً!", "text-red-600");
+                        return;
+                    }
+
+                    document.getElementById('input-area').value = selection.text;
+                    showStatus("تم جلب النص بنجاح");
+                });
+            } catch (error) {
+                console.error(error);
+                // Fallback للتجربة في المتصفح
+                if (!window.Office) showStatus("وضع التجربة: لا يمكن القراءة من وورد", "text-orange-500");
+            }
+        }
+
+        // 2. المعالجة والإدراج (الاستبدال)
+        async function processAndInsert() {
             const rawText = document.getElementById('input-area').value;
             if (!rawText) return;
 
-            const htmlContent = processContent(rawText);
-            
-            // تحديث المعاينة
-            document.getElementById('output-preview').innerHTML = htmlContent;
-
-            if (!officeReady) {
-                showStatus("تنبيه: هذا الزر يعمل فقط داخل Word Add-in.", "text-red-500");
-                return;
-            }
+            const htmlContent = secureProcess(rawText);
 
             try {
                 await Word.run(async (context) => {
                     const selection = context.document.getSelection();
-                    // هذا هو السطر السحري الذي يدرج الـ HTML كأنه نص منسق في الوورد
+                    // استبدال النص المحدد بالنص المعالج (Html)
                     selection.insertHtml(htmlContent, Word.InsertLocation.replace);
                     await context.sync();
                 });
-                showStatus("تم الإدراج بنجاح!");
+                showStatus("تم التحويل والاستبدال بأمان!");
             } catch (error) {
                 console.error(error);
-                showStatus("حدث خطأ: " + error.message, "text-red-500");
+                if (!window.Office) {
+                    console.log("HTML Result:", htmlContent);
+                    showStatus("تمت المعالجة (راجع الكونسول)", "text-blue-600");
+                }
             }
         }
 
-        // --- أدوات مساعدة ---
-        document.getElementById('input-area').addEventListener('input', function() {
-            const html = processContent(this.value);
-            document.getElementById('output-preview').innerHTML = html;
-        });
-
-        function clearAll() {
+        function clearArea() {
             document.getElementById('input-area').value = '';
-            document.getElementById('output-preview').innerHTML = '';
         }
 
         function showStatus(msg, color = "text-green-600") {
-            const el = document.getElementById('status-msg');
+            const el = document.getElementById('status-bar');
             el.textContent = msg;
-            el.className = `text-center text-xs mt-1 h-4 font-semibold transition-opacity ${color}`;
+            el.className = `text-center text-xs h-4 transition-opacity font-medium ${color}`;
             el.style.opacity = 1;
             setTimeout(() => el.style.opacity = 0, 3000);
         }
