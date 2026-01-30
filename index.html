@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClariTex Pro for Word</title>
+    <!-- استدعاء مكتبة Office.js الضرورية للتعامل مع وورد -->
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ms-blue: #0078D4;
+            --ms-bg: #FAF9F8;
+            --ms-text: #201F1E;
+        }
+        body { font-family: 'Segoe UI', 'Cairo', sans-serif; background-color: var(--ms-bg); color: var(--ms-text); }
+        .office-card { background: #fff; border: 1px solid #E1DFDD; border-radius: 4px; }
+        .office-btn:active { transform: scale(0.96); }
+        .ltr-content { direction: ltr; text-align: left; font-family: 'Segoe UI', sans-serif; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden p-2">
+
+    <!-- Header Compact for Sidebar -->
+    <header class="flex items-center justify-between pb-3 border-b border-gray-200 mb-3 shrink-0">
+        <div class="flex items-center gap-2 select-none">
+            <div class="text-xl font-bold tracking-tight">
+                <span style="color: var(--ms-blue);">Clari</span><span>Tex</span>
+            </div>
+            <span class="bg-gray-200 text-gray-600 text-[9px] px-1 rounded font-bold">ADD-IN</span>
+        </div>
+    </header>
+
+    <!-- Main Workspace (Vertical Layout for Sidebar) -->
+    <main class="flex-1 flex flex-col gap-3 overflow-hidden">
+        
+        <!-- Input -->
+        <div class="flex-1 office-card flex flex-col min-h-[150px]">
+            <div class="bg-gray-50 border-b px-3 py-2 text-xs font-semibold text-gray-600 flex justify-between">
+                <span>نص جيميناي (LaTeX/Markdown)</span>
+                <button onclick="clearAll()" class="text-red-500 hover:text-red-700">مسح</button>
+            </div>
+            <textarea id="input-area" 
+                class="flex-1 w-full p-3 resize-none outline-none text-sm ltr-content bg-transparent font-mono"
+                placeholder="الصق النص هنا..."></textarea>
+        </div>
+
+        <!-- Action Button -->
+        <div class="shrink-0">
+             <button id="insert-btn" onclick="insertToWord()" class="w-full office-btn bg-[#0078D4] hover:bg-[#0062AD] text-white py-2 rounded text-sm font-semibold flex items-center justify-center gap-2 shadow-sm disabled:bg-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                إدراج في المستند (Insert)
+            </button>
+            <div id="status-msg" class="text-center text-xs mt-1 h-4 text-green-600 font-semibold opacity-0 transition-opacity"></div>
+        </div>
+
+        <!-- Preview (Hidden logic mainly, visual for user confidence) -->
+        <div class="h-[100px] office-card flex flex-col opacity-75">
+             <div class="bg-gray-50 border-b px-3 py-1 text-[10px] font-semibold text-gray-500">معاينة التنسيق</div>
+             <div id="output-preview" class="flex-1 p-2 overflow-y-auto text-xs ltr-content"></div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- تهيئة الأوفيس ---
+        let officeReady = false;
+
+        Office.onReady((info) => {
+            if (info.host === Office.HostType.Word) {
+                officeReady = true;
+                console.log("Office is ready in Word!");
+            }
+        });
+
+        // --- دوال التحويل (نفس المنطق السابق) ---
+        const greekMap = { 'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'mu': 'μ', 'sigma': 'σ', 'pi': 'π', 'infty': '∞', 'pm': '±', 'approx': '≈', 'le': '≤', 'ge': '≥', 'times': '×', 'rightarrow': '→' }; 
+        // ... (يمكنك إضافة باقي القاموس الكبير هنا) ...
+
+        function convertMarkdownToHtml(text) {
+            let html = text;
+            // Basic Markdown Processing
+            html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'); // Bold
+            html = html.replace(/\*(.*?)\*/g, '<i>$1</i>'); // Italic
+            html = html.replace(/^\s*[\-\*] (.*)/gim, '<ul><li>$1</li></ul>'); // Lists
+            html = html.replace(/<\/ul>\s*<ul>/gim, ''); // Merge Lists
+            html = html.replace(/\n/g, '<br>'); // Newlines
+            return html;
+        }
+
+        function convertLatexToUnicode(s) {
+            // Simplified Logic for the Add-in demo
+            s = s.replace(/\\text\{([^}]+)\}/g, '$1');
+            s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1/$2)');
+            s = s.replace(/\^\{\\circ\}/g, '°');
+            for (const [name, char] of Object.entries(greekMap)) {
+                s = s.replace(new RegExp('\\\\' + name + '(?![a-zA-Z])', 'g'), char);
+            }
+            s = s.replace(/\^(\d+)/g, (m, d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]); // Simple superscript demo
+            s = s.replace(/_(\d+)/g, (m, d) => '₀₁₂₃₄₅₆₇₈₉'[d]); // Simple subscript demo
+            s = s.replace(/\\/g, ''); 
+            return s.trim();
+        }
+
+        function processContent(rawText) {
+            let processed = rawText.replace(/\$(.*?)\$/gs, (match, content) => convertLatexToUnicode(content));
+            return convertMarkdownToHtml(processed);
+        }
+
+        // --- دالة الإدراج في وورد ---
+        async function insertToWord() {
+            const rawText = document.getElementById('input-area').value;
+            if (!rawText) return;
+
+            const htmlContent = processContent(rawText);
+            
+            // تحديث المعاينة
+            document.getElementById('output-preview').innerHTML = htmlContent;
+
+            if (!officeReady) {
+                showStatus("تنبيه: هذا الزر يعمل فقط داخل Word Add-in.", "text-red-500");
+                return;
+            }
+
+            try {
+                await Word.run(async (context) => {
+                    const selection = context.document.getSelection();
+                    // هذا هو السطر السحري الذي يدرج الـ HTML كأنه نص منسق في الوورد
+                    selection.insertHtml(htmlContent, Word.InsertLocation.replace);
+                    await context.sync();
+                });
+                showStatus("تم الإدراج بنجاح!");
+            } catch (error) {
+                console.error(error);
+                showStatus("حدث خطأ: " + error.message, "text-red-500");
+            }
+        }
+
+        // --- أدوات مساعدة ---
+        document.getElementById('input-area').addEventListener('input', function() {
+            const html = processContent(this.value);
+            document.getElementById('output-preview').innerHTML = html;
+        });
+
+        function clearAll() {
+            document.getElementById('input-area').value = '';
+            document.getElementById('output-preview').innerHTML = '';
+        }
+
+        function showStatus(msg, color = "text-green-600") {
+            const el = document.getElementById('status-msg');
+            el.textContent = msg;
+            el.className = `text-center text-xs mt-1 h-4 font-semibold transition-opacity ${color}`;
+            el.style.opacity = 1;
+            setTimeout(() => el.style.opacity = 0, 3000);
+        }
+    </script>
+</body>
+</html>
