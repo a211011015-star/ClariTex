@@ -149,7 +149,7 @@
             </div>
             <textarea id="input-area" 
                 class="flex-1 w-full p-5 resize-none outline-none text-[15px] text-[#323130] leading-relaxed ltr-content bg-transparent font-mono"
-                placeholder="الصق هنا... "
+                placeholder="الصق أكواد LaTeX هنا... مثلاً: $$TO \% = ...$$"
                 spellcheck="false"></textarea>
         </div>
 
@@ -179,8 +179,6 @@
                 contenteditable="false">
                 <p class="text-gray-400 italic">ستظهر النتيجة هنا بتنسيق جاهز...</p>
             </div>
-            <!-- Hidden textarea for logic -->
-            <textarea id="output-raw" class="hidden"></textarea>
         </div>
 
     </main>
@@ -190,7 +188,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
         </svg>
-        <span id="toast-msg">تم النسخ بنجاح، صلِّ على النبي</span>
+        <span id="toast-msg">تم النسخ بنجاح</span>
     </div>
 
     <!-- StatusBar -->
@@ -199,11 +197,11 @@
             <span class="w-2 h-2 rounded-full bg-green-500"></span>
             صممه الصيدلاني أسامة فتحي محمد
         </span>
-        <span class="font-sans opacity-75">ClaTex v3.0</span>
+        <span class="font-sans opacity-75">ClaTex v4.0</span>
     </footer>
 
     <script>
-        // --- Data Maps (Expanded) ---
+        // --- Data Maps (Comprehensive) ---
         const greekMap = {
             'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'epsilon': 'ε', 'varepsilon': 'ε',
             'zeta': 'ζ', 'eta': 'η', 'theta': 'θ', 'vartheta': 'ϑ', 'iota': 'ι', 'kappa': 'κ',
@@ -231,7 +229,8 @@
             'leftarrow': '←', 'rightarrow': '→', 'to': '→', 'leftrightarrow': '↔',
             'Leftarrow': '⇐', 'Rightarrow': '⇒', 'Leftrightarrow': '⇔',
             'uparrow': '↑', 'downarrow': '↓', 'rightleftharpoons': '⇌',
-            'dots': '…', 'cdots': '⋯'
+            'dots': '…', 'cdots': '⋯', 'ldots': '…',
+            'lbrack': '[', 'rbrack': ']', 'lbrace': '{', 'rbrace': '}'
         };
 
         const superMap = {
@@ -280,15 +279,23 @@
                 return;
             }
 
-            // 1. Process LaTeX/Math First (Keep text flat)
+            // 1. Process LaTeX/Math Blocks
             let processed = rawText;
             
-            // Handle Math Blocks
-            processed = processed.replace(/\$(.*?)\$/gs, (match, content) => {
+            // Handle Display Math $$...$$ (This must come first)
+            processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match, content) => {
                 return convertLatexToUnicode(content);
             });
-            processed = processed.replace(/\\\[(.*?)\\\]/gs, (match, content) => {
+
+            // Handle Display Math \[...\]
+            processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (match, content) => {
                 return '\n' + convertLatexToUnicode(content) + '\n';
+            });
+
+            // Handle Inline Math $...$
+            // Using a safer regex that avoids matching across lines for inline unless needed
+            processed = processed.replace(/\$([\s\S]*?)\$/g, (match, content) => {
+                return convertLatexToUnicode(content);
             });
 
             // 2. Process Markdown to HTML (For Word Rich Text)
@@ -318,19 +325,13 @@
             html = html.replace(/\*(.*?)\*/g, '<i>$1</i>');
             html = html.replace(/_(.*?)_/g, '<i>$1</i>');
 
-            // Unordered Lists (bullet points)
-            // Use regex to wrap consecutive lines starting with "- " or "* " in <ul>
-            // A simple per-line approach:
+            // Lists
             html = html.replace(/^\s*[\-\*] (.*)/gim, '<ul><li>$1</li></ul>');
-            // Cleanup adjacent uls: </ul>\n<ul> -> can stay, Word handles it, or merge them.
-            // Merging is cleaner for Word spacing:
-            html = html.replace(/<\/ul>\s*<ul>/gim, '');
-
-            // Ordered Lists
+            html = html.replace(/<\/ul>\s*<ul>/gim, ''); // Merge adjacent lists
             html = html.replace(/^\s*\d+\. (.*)/gim, '<ol><li>$1</li></ol>');
             html = html.replace(/<\/ol>\s*<ol>/gim, '');
 
-            // Line Breaks: Double newline is paragraph, single is br
+            // Line Breaks
             html = html.replace(/\n\n/g, '<br><br>');
             html = html.replace(/\n/g, '<br>');
 
@@ -340,45 +341,81 @@
         function convertLatexToUnicode(latex) {
             let s = latex;
 
-            // 1. Basic cleaning
-            s = s.replace(/\\(text|mathrm|mathbf|mathit)\{([^}]+)\}/g, '$2');
-            
-            // 2. Fractions: \frac{a}{b} -> (a/b)
+            // --- 1. Clean Layout Commands ---
+            s = s.replace(/\\displaystyle/g, '');
+            s = s.replace(/\\limits/g, '');
+            // Remove \left and \right prefixes for parenthesis
+            s = s.replace(/\\left/g, '');
+            s = s.replace(/\\right/g, '');
+
+            // --- 2. Handle Escaped Special Characters (CRITICAL for %) ---
+            // Must happen before we strip backslashes generally
+            s = s.replace(/\\%/g, '%');
+            s = s.replace(/\\$/g, '$');
+            s = s.replace(/\\&/g, '&');
+            s = s.replace(/\\#/g, '#');
+            s = s.replace(/\\_/g, '_');
+            s = s.replace(/\\\{/g, '{');
+            s = s.replace(/\\\}/g, '}');
+
+            // --- 3. Extract Text inside Math \text{...} ---
+            // Match simple \text{content}. 
+            // This regex captures content inside curly braces for \text, \mathrm, etc.
+            // It preserves spaces inside the text block.
+            s = s.replace(/\\(text|mathrm|mathbf|mathit|textbf|textit)\{([^}]+)\}/g, '$2');
+
+            // --- 4. Fractions: \frac{a}{b} -> (a/b) ---
             while (s.match(/\\frac\{([^}]+)\}\{([^}]+)\}/)) {
                 s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1/$2)');
             }
             
-            // 3. Roots
+            // --- 5. Roots ---
             s = s.replace(/\\sqrt\{([^}]+)\}/g, '√($1)');
             s = s.replace(/\\sqrt\[3\]\{([^}]+)\}/g, '∛($1)');
 
-            // 4. Degrees
+            // --- 6. Handle Spacing Commands ---
+            s = s.replace(/\\quad/g, '  ');
+            s = s.replace(/\\qquad/g, '    ');
+            s = s.replace(/\\,/g, ' ');
+            s = s.replace(/\\;/g, ' ');
+            s = s.replace(/\\!/g, ''); 
+            s = s.replace(/~/g, ' '); 
+
+            // --- 7. Degrees ---
             s = s.replace(/\^\{\\circ\}/g, '°');
             s = s.replace(/\^\\circ/g, '°');
             s = s.replace(/\\circ/g, '°');
 
-            // 5. Greek
+            // --- 8. Greek Letters ---
             for (const [name, char] of Object.entries(greekMap)) {
+                // Look for \name not followed by letters
                 const regex = new RegExp('\\\\' + name + '(?![a-zA-Z])', 'g');
                 s = s.replace(regex, char);
             }
 
-            // 6. Symbols
+            // --- 9. Math Symbols ---
             for (const [name, char] of Object.entries(mathSymbols)) {
                 const regex = new RegExp('\\\\' + name + '(?![a-zA-Z])', 'g');
                 s = s.replace(regex, char);
             }
 
-            // 7. Superscripts
+            // --- 10. Superscripts (Simple) ---
             s = s.replace(/\^\{([^{}]+)\}/g, (m, group) => mapChars(group, superMap));
             s = s.replace(/\^([a-zA-Z0-9+\-=()])/g, (m, group) => mapChars(group, superMap));
 
-            // 8. Subscripts
+            // --- 11. Subscripts (Simple) ---
             s = s.replace(/_\{([^{}]+)\}/g, (m, group) => mapChars(group, subMap));
             s = s.replace(/_([a-zA-Z0-9+\-=()])/g, (m, group) => mapChars(group, subMap));
 
-            // 9. Final cleanup of slashes
-            s = s.replace(/\\[,;!]/g, ''); 
+            // --- 12. Final Cleanup ---
+            // Remove leftovers like grouping braces {a} -> a, but be careful not to merge words incorrectly
+            // This regex removes braces that are surrounding content but NOT preceded by backslash (escaped)
+            s = s.replace(/([^\\])\{([^}]+)\}/g, '$1$2'); 
+            
+            // Remove just start/end braces if the string starts with them
+            s = s.replace(/^\{([^}]+)\}$/g, '$1');
+
+            // Final slash cleanup
             s = s.replace(/\\/g, ''); 
 
             return s.trim();
@@ -407,15 +444,15 @@
             const text = outputPreview.innerText;
             
             try {
-                // Modern API: Writes both HTML (for Word formatting) and Text (fallback)
+                // Modern API
                 const clipboardItem = new ClipboardItem({
                     'text/html': new Blob([html], { type: 'text/html' }),
                     'text/plain': new Blob([text], { type: 'text/plain' })
                 });
                 await navigator.clipboard.write([clipboardItem]);
-                showToast("تم النسخ لوورد، صلِّ على نبيِّك (Rich Text)!");
+                showToast("تم النسخ لوورد (Rich Text)!");
             } catch (err) {
-                // Fallback for older browsers
+                // Legacy Fallback
                 const range = document.createRange();
                 range.selectNodeContents(outputPreview);
                 const selection = window.getSelection();
@@ -423,16 +460,35 @@
                 selection.addRange(range);
                 document.execCommand('copy');
                 selection.removeAllRanges();
-                showToast("تم النسخ (طريقة بديلة)!");
+                showToast("تم النسخ (وضع التوافق)!");
             }
         }
 
         function copyPlainText() {
             if (!inputArea.value) return;
-            const text = outputPreview.innerText; // Gets only the text, no HTML tags
-            navigator.clipboard.writeText(text).then(() => {
-                showToast("تم نسخ النص فقط (صلِّ على النَّبي ومتنساش)");
-            });
+            const text = outputPreview.innerText;
+            
+            // Create a temporary textarea to hold the text
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';  // Avoid scrolling to bottom
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                     showToast("تم نسخ النص فقط");
+                } else {
+                     showToast("فشل النسخ");
+                }
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+                showToast("فشل النسخ");
+            }
+            
+            document.body.removeChild(textarea);
         }
 
         function clearAll() {
