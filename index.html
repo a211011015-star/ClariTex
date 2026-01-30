@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClariTex Pro - المطور</title>
+    <title>ClariTex Pro - Search & Replace</title>
     <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Segoe+UI&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -11,8 +11,11 @@
         :root { --ms-blue: #0078D4; --ms-bg: #FAF9F8; }
         body { font-family: 'Segoe UI', 'Cairo', sans-serif; background-color: var(--ms-bg); }
         .office-btn:active { transform: scale(0.98); }
-        /* تحسين مظهر الأكواد والمعادلات */
-        .math-preview { font-family: 'Cambria Math', 'Times New Roman', serif; background-color: #f3f2f1; padding: 0 4px; border-radius: 3px; }
+        .log-item { font-size: 10px; border-bottom: 1px solid #eee; padding: 2px 0; }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
     </style>
 </head>
 <body class="flex flex-col h-screen overflow-hidden p-3 box-border">
@@ -21,7 +24,7 @@
     <header class="flex items-center justify-between pb-3 border-b border-gray-200 mb-3 shrink-0">
         <div class="flex items-center gap-2 select-none">
             <div class="text-lg font-bold text-[#201F1E]">
-                <span style="color: var(--ms-blue);">Clari</span>Tex <span class="text-xs font-normal text-gray-500">v4.0</span>
+                <span style="color: var(--ms-blue);">Clari</span>Tex <span class="text-xs font-normal text-gray-500">Find&Replace</span>
             </div>
         </div>
     </header>
@@ -29,28 +32,35 @@
     <!-- Main Content -->
     <main class="flex-1 flex flex-col gap-3 overflow-hidden">
         
-        <!-- Input Section -->
-        <div class="flex-1 flex flex-col bg-white border border-gray-300 rounded shadow-sm">
-            <div class="bg-gray-50 px-3 py-2 border-b flex justify-between items-center">
-                <span class="text-xs font-bold text-gray-600">النص المراد معالجته</span>
-                <button onclick="clearArea()" class="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">مسح</button>
+        <!-- Info Card -->
+        <div class="bg-blue-50 border border-blue-100 p-3 rounded text-xs text-blue-800 leading-5">
+            <strong>وضع الاستبدال الموضعي:</strong>
+            سيقوم النظام بالبحث عن معادلات LaTeX (مثل $\alpha$) داخل المستند واستبدالها في مكانها بدقة، مما يحافظ على تنسيق باقي المستند 100%.
+        </div>
+
+        <!-- Detected Equations List (Preview of what will be replaced) -->
+        <div class="flex-1 flex flex-col bg-white border border-gray-300 rounded shadow-sm overflow-hidden">
+            <div class="bg-gray-50 px-3 py-2 border-b flex justify-between items-center shrink-0">
+                <span class="text-xs font-bold text-gray-600">المعادلات المكتشفة</span>
+                <span id="count-badge" class="bg-gray-200 text-gray-700 px-1.5 rounded text-[10px]">0</span>
             </div>
-            <textarea id="input-area" class="flex-1 w-full p-3 resize-none outline-none text-sm font-mono text-gray-700 leading-relaxed" 
-                placeholder="الصق نص جيميناي هنا... النظام الجديد سيحمي النصوص العادية ويحول المعادلات فقط."></textarea>
+            <div id="log-area" class="flex-1 p-2 overflow-y-auto ltr-content font-mono text-xs text-gray-600">
+                <div class="text-center text-gray-400 mt-4 italic">اضغط "فحص المستند" للبدء...</div>
+            </div>
         </div>
 
         <!-- Actions -->
         <div class="grid grid-cols-2 gap-2 shrink-0">
-            <!-- زر قراءة التحديد من وورد -->
-            <button onclick="readFromWord()" class="col-span-2 office-btn bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-2 rounded text-sm font-semibold flex items-center justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                جلب النص من Word
+            <!-- Step 1: Scan -->
+            <button onclick="scanDocument()" class="office-btn bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-2 rounded text-sm font-semibold flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                1. فحص المستند
             </button>
             
-            <!-- زر المعالجة والإدراج -->
-            <button onclick="processAndInsert()" class="col-span-2 office-btn bg-[#0078D4] hover:bg-[#0062AD] text-white py-2.5 rounded text-sm font-semibold flex items-center justify-center gap-2 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-                معالجة واستبدال (آمن)
+            <!-- Step 2: Replace -->
+            <button id="btn-replace" onclick="executeSearchAndReplace()" disabled class="office-btn bg-[#0078D4] hover:bg-[#0062AD] disabled:bg-gray-300 disabled:text-gray-500 text-white py-2 rounded text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                2. استبدال الكل
             </button>
         </div>
 
@@ -58,16 +68,16 @@
     </main>
 
     <script>
-        // --- تهيئة Office.js ---
         Office.onReady((info) => {
             if (info.host === Office.HostType.Word) {
-                console.log("ClariTex Ready inside Word");
+                console.log("Ready");
             }
         });
 
-        // --- محرك المعالجة الآمن (Safe Engine) ---
-        
-        // قاموس الرموز (موسع)
+        // --- Global State ---
+        let uniqueEquations = []; // To store found patterns
+
+        // --- 1. Symbol Dictionary (Expanded) ---
         const symbolMap = {
             'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'epsilon': 'ε', 'zeta': 'ζ', 'eta': 'η', 'theta': 'θ', 
             'iota': 'ι', 'kappa': 'κ', 'lambda': 'λ', 'mu': 'μ', 'nu': 'ν', 'xi': 'ξ', 'omicron': 'ο', 'pi': 'π', 
@@ -78,135 +88,138 @@
             'deg': '°', 'circ': '°', 'angle': '∠', 'nabla': '∇', 'partial': '∂', 'sum': '∑', 'prod': '∏', 'int': '∫',
             'in': '∈', 'notin': '∉', 'subset': '⊂', 'subseteq': '⊆', 'cup': '∪', 'cap': '∩', 'empty': '∅'
         };
-
         const superMap = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','n':'ⁿ','i':'ⁱ','x':'ˣ' };
         const subMap = { '0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎','x':'ₓ','n':'ₙ' };
 
-        // الدالة الرئيسية التي تفصل النص عن المعادلات
-        function secureProcess(fullText) {
-            // 1. تقسيم النص بناء على علامات الدولار $...$
-            // النمط يلتقط ما بداخل $...$ أو \[...\]
-            // نستخدم دالة split مع capture group للاحتفاظ بالفواصل
-            const parts = fullText.split(/(\$[^$]+\$|\\\[[\s\S]*?\\\])/g);
-
-            // 2. معالجة الأجزاء الفردية فقط (التي هي معادلات)
-            const processedParts = parts.map(part => {
-                if (part.startsWith('$') || part.startsWith('\\[')) {
-                    // هذا جزء معادلة - قم بالتحويل
-                    let cleanMath = part.replace(/^\\\[|\\\]$|^\$|\$$/g, ''); // إزالة الأقواس $
-                    return `<span class="math-preview">${convertMathToUnicode(cleanMath)}</span>`;
-                } else {
-                    // هذا نص عادي - اتركه كما هو تماماً، فقط حول الأسطر الجديدة لـ HTML
-                    // Escape HTML special chars to be safe
-                    return part
-                        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                        .replace(/\n/g, '<br>');
-                }
-            });
-
-            // 3. إعادة التجميع
-            return processedParts.join('');
-        }
-
+        // --- 2. Conversion Logic ---
         function convertMathToUnicode(latex) {
             let s = latex;
-
-            // تنظيف الأوامر الشائعة
             s = s.replace(/\\text\{([^}]+)\}/g, '$1'); 
             s = s.replace(/\\mathrm\{([^}]+)\}/g, '$1');
-            
-            // الكسور
             s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1/$2)');
-
-            // الجذور
             s = s.replace(/\\sqrt\{([^}]+)\}/g, '√($1)');
-
-            // الدرجات المئوية (حالات خاصة)
             s = s.replace(/\^\{\\circ\}/g, '°').replace(/\^\\circ/g, '°');
 
-            // الرموز (بحث دقيق باستخدام word boundary للنهاية فقط لتجنب استبدال pi بـ pine)
-            // بما أننا داخل بلوك معادلة، الاستبدال أكثر أماناً، لكن نتوخى الحذر
             for (const [name, char] of Object.entries(symbolMap)) {
-                // نستبدل \name بشرط أن لا يتبعها حرف أبجدي
                 s = s.replace(new RegExp('\\\\' + name + '(?![a-zA-Z])', 'g'), char);
             }
-
-            // الأسس والرموز السفلية
             s = s.replace(/\^\{([^{}]+)\}/g, (_, g) => mapChars(g, superMap));
             s = s.replace(/\^([a-zA-Z0-9])/g, (_, g) => mapChars(g, superMap));
             s = s.replace(/_\{([^{}]+)\}/g, (_, g) => mapChars(g, subMap));
             s = s.replace(/_([a-zA-Z0-9])/g, (_, g) => mapChars(g, subMap));
-
-            // تنظيف الشرطات المائلة المتبقية
             s = s.replace(/\\/g, '');
-
             return s;
         }
 
-        function mapChars(str, map) {
-            return str.split('').map(c => map[c] || c).join('');
-        }
+        function mapChars(str, map) { return str.split('').map(c => map[c] || c).join(''); }
 
-
-        // --- التفاعل مع وورد ---
-
-        // 1. جلب النص من وورد (للتعديل عليه)
-        async function readFromWord() {
+        // --- 3. Word Interaction: SCAN ---
+        async function scanDocument() {
             try {
                 await Word.run(async (context) => {
-                    const selection = context.document.getSelection();
-                    selection.load("text");
+                    // Get body text to analyze patterns first
+                    const body = context.document.body;
+                    body.load("text");
                     await context.sync();
 
-                    if (!selection.text) {
-                        showStatus("الرجاء تحديد نص في المستند أولاً!", "text-red-600");
-                        return;
+                    const text = body.text;
+                    
+                    // Regex to find all $...$ or \[...\] patterns
+                    // Using Set to store unique equations only
+                    const matches = new Set();
+                    const regex = /(\$[^$]+\$|\\\[[\s\S]*?\\\])/g;
+                    let match;
+                    while ((match = regex.exec(text)) !== null) {
+                        matches.add(match[0]);
                     }
 
-                    document.getElementById('input-area').value = selection.text;
-                    showStatus("تم جلب النص بنجاح");
+                    // Convert to Array and Sort by Length DESCENDING
+                    // Important: Replace longest equations first to avoid partial matches
+                    uniqueEquations = Array.from(matches).sort((a, b) => b.length - a.length);
+
+                    updateUI(uniqueEquations);
+                    
+                    if (uniqueEquations.length > 0) {
+                        showStatus(`تم العثور على ${uniqueEquations.length} نموذج معادلة`, "text-blue-600");
+                        document.getElementById('btn-replace').disabled = false;
+                    } else {
+                        showStatus("لم يتم العثور على صيغ LaTeX", "text-orange-500");
+                    }
                 });
-            } catch (error) {
-                console.error(error);
-                // Fallback للتجربة في المتصفح
-                if (!window.Office) showStatus("وضع التجربة: لا يمكن القراءة من وورد", "text-orange-500");
-            }
-        }
-
-        // 2. المعالجة والإدراج (الاستبدال)
-        async function processAndInsert() {
-            const rawText = document.getElementById('input-area').value;
-            if (!rawText) return;
-
-            const htmlContent = secureProcess(rawText);
-
-            try {
-                await Word.run(async (context) => {
-                    const selection = context.document.getSelection();
-                    // استبدال النص المحدد بالنص المعالج (Html)
-                    selection.insertHtml(htmlContent, Word.InsertLocation.replace);
-                    await context.sync();
-                });
-                showStatus("تم التحويل والاستبدال بأمان!");
             } catch (error) {
                 console.error(error);
                 if (!window.Office) {
-                    console.log("HTML Result:", htmlContent);
-                    showStatus("تمت المعالجة (راجع الكونسول)", "text-blue-600");
+                    // Mock for testing without Word
+                    uniqueEquations = ['$\\alpha + \\beta$', '$\\alpha$'];
+                    updateUI(uniqueEquations);
+                    document.getElementById('btn-replace').disabled = false;
                 }
             }
         }
 
-        function clearArea() {
-            document.getElementById('input-area').value = '';
+        function updateUI(equations) {
+            const list = document.getElementById('log-area');
+            const badge = document.getElementById('count-badge');
+            list.innerHTML = '';
+            badge.textContent = equations.length;
+
+            equations.forEach(eq => {
+                const converted = convertMathToUnicode(eq.replace(/^\\\[|\\\]$|^\$|\$$/g, ''));
+                const div = document.createElement('div');
+                div.className = 'log-item flex justify-between';
+                div.innerHTML = `<span class="text-red-500 truncate w-1/2" title="${eq}">${eq}</span> 
+                                 <span class="text-green-600 truncate w-1/2 text-left" dir="ltr">→ ${converted}</span>`;
+                list.appendChild(div);
+            });
         }
 
-        function showStatus(msg, color = "text-green-600") {
+        // --- 4. Word Interaction: EXECUTE REPLACE ---
+        async function executeSearchAndReplace() {
+            if (uniqueEquations.length === 0) return;
+
+            showStatus("جاري الاستبدال... يرجى الانتظار", "text-blue-600");
+
+            try {
+                await Word.run(async (context) => {
+                    const body = context.document.body;
+                    
+                    // Iterate through each unique equation found
+                    for (const originalText of uniqueEquations) {
+                        
+                        // 1. Search for this exact string in the doc
+                        // matchWildcards: false ensures '$' is treated literally
+                        const searchResults = body.search(originalText, { matchCase: true, matchWildcards: false });
+                        context.load(searchResults, 'items');
+                        await context.sync();
+
+                        // 2. Prepare the clean replacement
+                        const cleanMath = originalText.replace(/^\\\[|\\\]$|^\$|\$$/g, '');
+                        const newText = convertMathToUnicode(cleanMath);
+
+                        // 3. Replace all instances found
+                        for (let i = 0; i < searchResults.items.length; i++) {
+                            // Insert as HTML to support rich chars better, or insertText for plain unicode
+                            // insertText is safer for formatting preservation if we only have unicode chars
+                            searchResults.items[i].insertText(newText, Word.InsertLocation.replace);
+                        }
+                    }
+                    
+                    await context.sync();
+                });
+                showStatus("تم الاستبدال بنجاح!", "text-green-600");
+                document.getElementById('btn-replace').disabled = true;
+                document.getElementById('log-area').innerHTML += '<div class="text-center text-green-600 font-bold mt-2">✓ تم الانتهاء</div>';
+            } catch (error) {
+                console.error(error);
+                showStatus("حدث خطأ أثناء الاستبدال: " + error.message, "text-red-600");
+            }
+        }
+
+        function showStatus(msg, color) {
             const el = document.getElementById('status-bar');
             el.textContent = msg;
             el.className = `text-center text-xs h-4 transition-opacity font-medium ${color}`;
             el.style.opacity = 1;
-            setTimeout(() => el.style.opacity = 0, 3000);
         }
     </script>
 </body>
